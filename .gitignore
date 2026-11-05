@@ -31,3 +31,9 @@ tmp/
 *.wav
 *.mp3
 !assets/samples/*.mp3
+
+# python engine (created by npm run setup)
+.venv/
+__pycache__/
+*.pyc
+tests/bench-results.json
