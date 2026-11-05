@@ -251,14 +251,13 @@ export class Segmenter {
       this.silenceFrames += 1;
     }
 
-    const sliced = this.hardSliceBytes && this.segmentBytes >= this.hardSliceBytes;
-    if (
-      this.silenceFrames >= this.silenceFramesTarget ||
-      this.segmentBytes >= this.maxBytes ||
-      sliced ||
-      (this.segmentStart && Date.now() - this.segmentStart >= this.maxSeconds * 1000)
-    ) {
-      // a slice boundary is an utterance boundary, not a pause: keep the audio
+    // Close the segment when the speaker pauses, or when it has run long
+    // enough that waiting for a pause would stall the transcript. Never slice
+    // on a fixed byte count: cutting mid-word is what makes the recogniser
+    // loop and repeat itself.
+    const longEnoughToSlice = this.segmentBytes >= (this.hardSliceBytes || Infinity);
+    const atPause = this.silenceFrames >= this.silenceFramesTarget;
+    if (atPause || this.segmentBytes >= this.maxBytes || longEnoughToSlice) {
       this.flush({ force: true });
     }
   }

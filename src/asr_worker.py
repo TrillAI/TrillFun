@@ -13,7 +13,9 @@ Why a separate Python process:
 Protocol: newline-delimited JSON on stdin/stdout.
 
   -> {"id":"s1","op":"transcribe","path":"/tmp/x.wav","preset":"radio",
-      "prompt":"...","words":["10-4","unit 7"],"language":"en"}
+      "prompt":"...","language":"en"}
+  -> {"id":"s2","op":"nudge","text":"... previous transcript ..."}
+      <- {"type":"nudged"}    (next decode is primed with this text)
   <- {"type":"progress","id":"s1","stage":"transcribing"}
   <- {"type":"result","id":"s1","text":"...","segments":[...],"language":"en",
       "duration":12.3,"rtf":0.4,"speaker":null}
@@ -35,6 +37,16 @@ STATE = {
     "language": "en",
     "loaded_at": None,
 }
+
+
+# Text used to prime the *next* decode. Long-lived streams benefit from this:
+# the model keeps the previous line in context (call signs, topic, spelling)
+# without enabling condition_on_previous_text, which is what causes 24/7 loops.
+NEXT_PROMPT = {"text": None}
+
+# How much previous transcript to feed back. Whisper's prompt window is small;
+# more than a couple of lines just displaces the preset prompt.
+NUDGE_CHARS = 160
 
 
 def log(*args):
@@ -65,6 +77,44 @@ def load_model(path, compute_type, cpu_threads):
     return model
 
 
+def dedupe_repeats(text, min_words=6, max_repeats=12):
+    """Collapse the repeated phrase loops Whisper produces on long segments.
+
+    On a 25 s slice of continuous audio the decoder sometimes emits the same
+    clause over and over ("... mile marker twelve, ... mile marker twelve").
+    A human repeating a phrase verbatim six times in a row is not a thing on
+    dispatch audio, so collapse exact runs of the same n-word block, longest
+    block first. Single word stutters ("four, four") are left alone.
+    """
+    words = text.split()
+    if len(words) < min_words * 2:
+        return text
+    for n in range(min(12, len(words) // 2), min_words - 1, -1):
+        out = []
+        i = 0
+        changed = False
+        while i < len(words):
+            block = words[i:i + n]
+            reps = 1
+            while len(block) == n and words[i + reps * n:i + (reps + 1) * n] == block:
+                reps += 1
+            if reps >= 2:
+                changed = True
+                out.extend(block)
+                i += reps * n
+            else:
+                out.append(words[i])
+                i += 1
+        words = out
+    # collapse a word repeated more than max_repeats times in a row
+    out = []
+    for w in words:
+        if len(out) >= max_repeats and all(x == w for x in out[-max_repeats:]):
+            continue
+        out.append(w)
+    return " ".join(out)
+
+
 def handle_transcribe(req):
     model = load_model(req["model"], req.get("compute", "int8"), req.get("threads", 4))
     path = req["path"]
@@ -74,6 +124,13 @@ def handle_transcribe(req):
     emit({"type": "progress", "id": req["id"], "stage": "transcribing"})
     t0 = time.time()
 
+    prompt = req.get("prompt") or None
+    nudge = NEXT_PROMPT.get("text")
+    if nudge:
+        # previous line first (most recent context), then the preset vocabulary
+        prompt = f"{nudge} {prompt}" if prompt else nudge
+        prompt = prompt[-400:]
+
     kwargs = dict(
         language=req.get("language", "en"),
         task="transcribe",
@@ -81,7 +138,7 @@ def handle_transcribe(req):
         best_of=int(req.get("beam_size", 5)),
         temperature=[0.0, 0.2, 0.4],
         condition_on_previous_text=False,  # avoids 24/7 drift/repetition loops
-        initial_prompt=req.get("prompt") or None,
+        initial_prompt=prompt,
         hotwords=req.get("hotwords") or None,
         vad_filter=bool(req.get("vad", False)),
         word_timestamps=bool(req.get("word_timestamps", False)),
@@ -113,7 +170,10 @@ def handle_transcribe(req):
         out_segments.append(item)
 
     elapsed = time.time() - t0
-    text = " ".join(pieces).strip()
+    text = dedupe_repeats(" ".join(pieces).strip())
+    # remember the tail of this line for the next decode
+    if text and req.get("nudge", True):
+        NEXT_PROMPT["text"] = text[-NUDGE_CHARS:]
     # crude but useful confidence: mean segment logprob mapped to 0..1
     logprobs = [s["avg_logprob"] for s in out_segments] or [-1.0]
     conf = max(0.0, min(1.0, 1.0 + sum(logprobs) / len(logprobs)))
@@ -159,6 +219,9 @@ def main():
         try:
             if op == "transcribe":
                 handle_transcribe(req)
+            elif op == "nudge":
+                NEXT_PROMPT["text"] = (req.get("text") or "")[-NUDGE_CHARS:] or None
+                emit({"type": "nudged", "id": req_id})
             elif op == "ping":
                 emit({"type": "pong", "id": req_id})
             elif op == "download":

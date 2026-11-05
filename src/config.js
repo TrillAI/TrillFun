@@ -42,7 +42,7 @@ export const config = {
     maxSegmentSeconds: num(process.env.TRILL_MAX_SEGMENT_SECONDS, 60),
     // slice length while audio keeps coming without a pause (continuous talker,
     // open mic, music bed). Keeps transcript latency honest on 24/7 streams.
-    hardSliceSeconds: num(process.env.TRILL_HARD_SLICE_SECONDS, 25),
+    hardSliceSeconds: num(process.env.TRILL_HARD_SLICE_SECONDS, 45),
     // audio kept on disk around each transcript (for re-play / re-transcribe)
     keepAudio: process.env.TRILL_KEEP_AUDIO !== 'false',
     audioRetentionHours: num(process.env.TRILL_AUDIO_RETENTION_HOURS, 72),

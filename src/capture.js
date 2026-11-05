@@ -333,15 +333,19 @@ export class Capture extends EventEmitter {
    * which is enough to show "Speaker 1 / Speaker 2" turn-taking.
    */
   #speakerFor(session, pcm, text) {
-    const m = /^\s*(dispatch|unit\s*\d+|car\s*\d+|engine\s*\d+|medic\s*\d+|rescue\s*\d+|truck\s*\d+|ladder\s*\d+)/i.exec(text);
+    // a call sign anywhere in the line identifies the keyed station
+    const m = /\b(dispatch|unit\s*\d+|car\s*\d+|engine\s*\d+|medic\s*\d+|rescue\s*\d+|truck\s*\d+|ladder\s*\d+)\b/i.exec(text);
     if (m) {
-      const label = m[1].replace(/\s+/g, ' ').trim();
+      const label = m[1]
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^\w/, (c) => c.toUpperCase());
       session.speaker = label;
       return label;
     }
-    if (/^(dispatch|copy|roger|ten[- ]\d)/i.test(text) && session.lastSpeaker === 'Dispatch') {
-      return 'Dispatch';
-    }
+    // on a radio channel the previous station is the best guess for a
+    // continuation line ("copy nine, ten eighty pursuit...")
+    if (session.type === 'tuner' && session.speaker) return session.speaker;
     if (session.preset === 'phone' || session.preset === 'auto') {
       const f0 = estimatePitch(pcm, session.sampleRate);
       if (f0) {
