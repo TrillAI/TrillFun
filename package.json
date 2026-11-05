@@ -1,0 +1,17 @@
+{
+  "name": "trill-trace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Universal audio transcription for radio chatter, phone calls, and live streams",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@huggingface/transformers": "^4.3.2",
+    "express": "^5.1.0",
+    "ws": "^8.18.3"
+  }
+}

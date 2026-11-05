@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# runtime data: transcripts, audio captures, logs
+data/
+logs/
+*.log
+
+# downloaded AI models (fetched at runtime into .models/models)
+.models/
+*.onnx
+*.bin
+*.part[0-9]
+
+# build output
+dist/
+build/
+out/
+
+# local env / editor / OS cruft
+.env
+.env.*
+!.env.example
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# temp captures
+tmp/
+*.wav
+*.mp3
+!assets/samples/*.mp3
