@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>TrillFun — Live Transcription</title>
+<meta name="description" content="Universal live transcription for radio chatter, phone calls and streams. Always-on, 10-code aware, with full history." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f1720'/%3E%3Cg fill='%2334d399'%3E%3Crect x='7' y='13' width='3' height='6' rx='1.5'/%3E%3Crect x='12' y='8' width='3' height='16' rx='1.5'/%3E%3Crect x='17' y='11' width='3' height='10' rx='1.5'/%3E%3Crect x='22' y='14' width='3' height='4' rx='1.5'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div id="app" class="app">
+  <!-- ── rail ─────────────────────────────────────────────────────── -->
+  <aside class="rail" id="rail">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="brand-text">
+        <strong>TrillFun</strong>
+        <small>live transcription</small>
+      </div>
+      <button class="icon-btn rail-close" id="railClose" title="Close menu" aria-label="Close menu">✕</button>
+    </div>
+
+    <button class="btn primary block" id="newStreamBtn">
+      <span class="plus">＋</span> New stream
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">
+        <span>Streams</span>
+        <button class="mini" id="refreshStreams" title="Refresh">⟳</button>
+      </div>
+      <div id="streamList" class="stream-list" role="list"></div>
+    </div>
+
+    <div class="rail-section rail-grow">
+      <div class="rail-label"><span>Engine</span></div>
+      <div id="engineCard" class="engine-card">
+        <div class="engine-row"><span class="dot" id="asrDot"></span><span id="asrModel">checking…</span></div>
+        <div class="meter"><i id="asrMeter"></i></div>
+        <div class="engine-meta" id="asrMeta">—</div>
+      </div>
+      <div class="rail-label" style="margin-top:18px"><span>Session</span></div>
+      <div class="engine-meta" id="sessionStats">—</div>
+    </div>
+
+    <div class="rail-actions">
+      <button class="btn ghost block" id="demoBtn">Run demo traffic</button>
+      <button class="btn ghost block" id="helpBtn">How it works</button>
+    </div>
+  </aside>
+
+  <!-- ── main ─────────────────────────────────────────────────────── -->
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn rail-open" id="railOpen" title="Streams" aria-label="Open menu">☰</button>
+      <div class="stream-head">
+        <h1 id="streamTitle">No stream selected</h1>
+        <div class="stream-sub">
+          <span id="streamBadge" class="badge">idle</span>
+          <span class="sep">·</span>
+          <span id="streamPreset" class="muted">—</span>
+          <span class="sep">·</span>
+          <span id="streamMeta" class="muted">—</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="search">
+          <input id="searchInput" type="search" placeholder="Search all transcripts…" autocomplete="off" />
+          <kbd>/</kbd>
+        </div>
+        <button class="icon-btn" id="pauseBtn" title="Pause / resume capture" disabled>⏸</button>
+        <button class="icon-btn" id="exportBtn" title="Export transcript" disabled>⤓</button>
+        <button class="icon-btn" id="settingsBtn" title="Settings" disabled>⚙</button>
+      </div>
+    </header>
+
+    <div class="status-strip" id="statusStrip">
+      <div class="live-meter" title="Input level">
+        <i id="levelBar"></i>
+        <em id="levelThresh"></em>
+      </div>
+      <span id="captureStatus">Waiting for a stream…</span>
+      <span class="grow"></span>
+      <span id="asrLag" class="muted"></span>
+      <button class="mini" id="alwaysOnBtn" title="Keep transcribing with this tab closed">always-on: —</button>
+    </div>
+
+    <section class="panel capture-panel" id="capturePanel" hidden>
+      <div class="capture-grid">
+        <div class="capture-card" id="cardSystem">
+          <div class="cc-icon">🖥️</div>
+          <h3>System audio</h3>
+          <p>Transcribe everything the computer plays — players, calls, radios. Captured before the volume stage, so a muted player still transcribes.</p>
+          <label class="field">
+            <span>Audio processing</span>
+            <select id="systemPreset">
+              <option value="auto">Universal (auto)</option>
+              <option value="radio">Radio chatter</option>
+              <option value="phone">Phone call</option>
+              <option value="noisy">Noisy room</option>
+              <option value="clean">Clean audio</option>
+            </select>
+          </label>
+          <button class="btn primary block" data-capture="system">Start system audio</button>
+          <small class="hint" id="systemHint">Chrome/Edge: pick any tab or the whole screen with “share audio”.</small>
+        </div>
+        <div class="capture-card" id="cardTab">
+          <div class="cc-icon">🎧</div>
+          <h3>A single tab / player</h3>
+          <p>Only the selected tab or window. Ideal for one stream or one game. Works whether the tab is muted or not.</p>
+          <label class="field">
+            <span>Audio processing</span>
+            <select id="tabPreset">
+              <option value="auto">Universal (auto)</option>
+              <option value="radio">Radio chatter</option>
+              <option value="phone">Phone call</option>
+              <option value="noisy">Noisy room</option>
+              <option value="clean">Clean audio</option>
+            </select>
+          </label>
+          <button class="btn primary block" data-capture="tab">Share a tab</button>
+          <small class="hint">Choose the tab, then tick “Also share tab audio”.</small>
+        </div>
+        <div class="capture-card" id="cardMic">
+          <div class="cc-icon">🎙️</div>
+          <h3>Microphone / phone call</h3>
+          <p>In-person conversation, speakerphone, or a call playing next to the phone. Noise-robust for hiss and echo.</p>
+          <label class="field">
+            <span>Audio processing</span>
+            <select id="micPreset">
+              <option value="auto">Universal (auto)</option>
+              <option value="phone">Phone call</option>
+              <option value="radio">Radio chatter</option>
+              <option value="noisy">Noisy room</option>
+            </select>
+          </label>
+          <button class="btn primary block" data-capture="mic">Start microphone</button>
+          <small class="hint">Mic capture is echo-processed and noise-suppressed by the browser.</small>
+        </div>
+      </div>
+      <div class="capture-grid">
+        <div class="capture-card" id="cardUrl">
+          <div class="cc-icon">📡</div>
+          <h3>Stream URL (24/7)</h3>
+          <p>A radio scanner feed, internet radio, icecast or HLS stream. This server tunes in itself — it keeps transcribing with every browser closed, and resumes after a restart.</p>
+          <label class="field">
+            <span>Stream URL</span>
+            <input id="urlInput" type="url" placeholder="https://…/scanner.mp3" />
+          </label>
+          <div class="row">
+            <label class="field grow">
+              <span>Audio processing</span>
+              <select id="urlPreset">
+                <option value="radio" selected>Radio chatter</option>
+                <option value="auto">Universal (auto)</option>
+                <option value="phone">Phone call</option>
+                <option value="noisy">Noisy room</option>
+                <option value="clean">Clean audio</option>
+              </select>
+            </label>
+          </div>
+          <button class="btn primary block" id="startUrlBtn">Tune in</button>
+        </div>
+        <div class="capture-card" id="cardFile">
+          <div class="cc-icon">📁</div>
+          <h3>Audio / video file</h3>
+          <p>Police scanner archives, call recordings, meeting audio, video files. Transcribed and filed into history.</p>
+          <label class="field">
+            <span>File</span>
+            <input id="fileInput" type="file" accept="audio/*,video/*,.mp3,.wav,.m4a,.ogg,.opus,.flac,.aac,.mp4,.mov,.mkv,.webm" />
+          </label>
+          <label class="field">
+            <span>Audio processing</span>
+            <select id="filePreset">
+              <option value="radio" selected>Radio chatter</option>
+              <option value="auto">Universal (auto)</option>
+              <option value="phone">Phone call</option>
+            </select>
+          </label>
+          <button class="btn primary block" id="uploadBtn">Transcribe file</button>
+          <div class="progress" id="uploadProgress" hidden><i></i></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="transcript-wrap">
+      <div class="transcript-head">
+        <div class="tabs">
+          <button class="tab active" data-view="live">Live</button>
+          <button class="tab" data-view="history">History</button>
+        </div>
+        <div class="transcript-tools">
+          <label class="switch" title="Show the meaning of each 10-code inline">
+            <input type="checkbox" id="annotateToggle" checked />
+            <span>10-code meanings</span>
+          </label>
+          <label class="switch" title="Auto-scroll while new lines arrive">
+            <input type="checkbox" id="followToggle" checked />
+            <span>Follow</span>
+          </label>
+          <button class="mini" id="clearBtn" title="Clear this stream's transcript">clear</button>
+        </div>
+      </div>
+
+      <div class="transcript" id="transcript" aria-live="polite">
+        <div class="empty" id="emptyState">
+          <div class="empty-art">📻</div>
+          <h2>Nothing transcribed yet</h2>
+          <p>Pick a source above — or press <strong>Run demo traffic</strong> to see a dispatch channel in action.</p>
+        </div>
+      </div>
+
+      <div class="search-results" id="searchResults" hidden>
+        <div class="sr-head">
+          <span id="srTitle">Search</span>
+          <button class="mini" id="closeSearch">close</button>
+        </div>
+        <div id="srList" class="transcript compact"></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span id="footStats">0 segments</span>
+      <span class="grow"></span>
+      <span class="muted">Local speech engine · nothing is uploaded</span>
+    </footer>
+  </main>
+</div>
+
+<!-- ── new stream modal ────────────────────────────────────────────── -->
+<div class="modal" id="newStreamModal" hidden>
+  <div class="modal-card">
+    <header>
+      <h2>New stream</h2>
+      <button class="icon-btn" data-close>✕</button>
+    </header>
+    <label class="field">
+      <span>Name</span>
+      <input id="nsTitle" placeholder="e.g. Cleveland PD District 3" />
+    </label>
+    <label class="field">
+      <span>Type</span>
+      <select id="nsKind">
+        <option value="stream">Stream URL (always-on)</option>
+        <option value="radio">Radio / scanner</option>
+        <option value="phone">Phone call</option>
+        <option value="meeting">Meeting / recording</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Audio processing</span>
+      <select id="nsPreset">
+        <option value="auto">Universal (auto)</option>
+        <option value="radio">Radio chatter</option>
+        <option value="phone">Phone call</option>
+        <option value="noisy">Noisy room</option>
+        <option value="clean">Clean audio</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Stream URL (optional — enables 24/7 server-side capture)</span>
+      <input id="nsUrl" type="url" placeholder="https://…" />
+    </label>
+    <label class="switch inline">
+      <input type="checkbox" id="nsAlwaysOn" checked />
+      <span>Keep transcribing 24/7 (resume after restart)</span>
+    </label>
+    <footer>
+      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn primary" id="nsCreate">Create stream</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ── help modal ──────────────────────────────────────────────────── -->
+<div class="modal" id="helpModal" hidden>
+  <div class="modal-card wide">
+    <header>
+      <h2>How TrillFun works</h2>
+      <button class="icon-btn" data-close>✕</button>
+    </header>
+    <div class="help-body">
+      <h3>Capture even when muted</h3>
+      <p>System and tab capture read the audio <em>before</em> the volume stage of the player, so a muted player, a muted tab, or a muted system still produces audio for transcription. Nothing needs to be audible.</p>
+
+      <h3>Keeps transcribing when the page is closed</h3>
+      <p><strong>Stream URL</strong> sources are pulled by the server itself. Once tuned in, they keep transcribing 24/7, survive page reloads, and resume automatically after a server restart. Browser-based sources (system/tab/mic) can only capture while a tab is open — that is a browser security rule, not a TrillFun limit — but the stream is remembered and restarts the moment any TrillFun page reconnects.</p>
+
+      <h3>Radio chatter and 10-codes</h3>
+      <p>The radio preset band-limits to 300–3200&nbsp;Hz, removes squelch hiss, and compresses clipped PTT audio. Every 10-code is canonicalised (<em>“ten fifty four” → 10-54</em>) and annotated with its meaning. Call signs and the phonetic alphabet are normalised too.</p>
+
+      <h3>Phone calls</h3>
+      <p>The phone preset is tuned for 300–3400&nbsp;Hz, hiss and codec artifacts. Speakers are split into A/B turns by pitch; radio traffic is labelled by call sign.</p>
+
+      <h3>History</h3>
+      <p>Every segment is written to a local database as soon as it is transcribed, with timestamp, speaker, codes, confidence and the audio. Search across all streams, export as text, SRT, VTT, CSV or JSON.</p>
+
+      <h3>Privacy</h3>
+      <p>Speech recognition runs locally in this app. No audio or transcript leaves the machine.</p>
+    </div>
+    <footer><button class="btn primary" data-close>Got it</button></footer>
+  </div>
+</div>
+
+<!-- ── settings modal ─────────────────────────────────────────────── -->
+<div class="modal" id="settingsModal" hidden>
+  <div class="modal-card">
+    <header>
+      <h2>Stream settings</h2>
+      <button class="icon-btn" data-close>✕</button>
+    </header>
+    <label class="field">
+      <span>Name</span>
+      <input id="stTitle" />
+    </label>
+    <label class="field">
+      <span>Audio processing</span>
+      <select id="stPreset">
+        <option value="auto">Universal (auto)</option>
+        <option value="radio">Radio chatter</option>
+        <option value="phone">Phone call</option>
+        <option value="noisy">Noisy room</option>
+        <option value="clean">Clean audio</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Stream URL</span>
+      <input id="stUrl" type="url" placeholder="https://…" />
+    </label>
+    <label class="switch inline"><input type="checkbox" id="stAlwaysOn" /><span>Keep transcribing 24/7</span></label>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" id="stExport">Export</button>
+      <button class="btn danger" id="stDelete">Delete stream</button>
+    </div>
+    <footer>
+      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn primary" id="stSave">Save</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

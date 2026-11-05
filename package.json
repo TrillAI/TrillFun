@@ -1,0 +1,24 @@
+{
+  "name": "trillfun",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TrillFun — universal live transcription for radio chatter, phone calls, and streams. Always-on capture, full history, 10-code aware.",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "setup": "node scripts/setup.js",
+    "corpus": "node scripts/make-corpus.js",
+    "test": "node scripts/selftest.js"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "express": "^5.1.0",
+    "multer": "^2.5.0",
+    "ws": "^8.18.3"
+  }
+}
